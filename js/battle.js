@@ -50,7 +50,7 @@ export class Battle {
   hud() {
     let h = $('bhud'); if (!h) { h = el('div', ''); h.id = 'bhud'; $('ui').appendChild(h); }
     const row = (b) => `<div class="brow ${b.gone ? 'out' : ''} ${b.marked ? 'mk' : ''}"><b>${esc(b.name)}</b><span class="bt">${b.gone ? '潰散' : b.troops}</span><i><em style="width:${clamp(b.troops / b.max, 0, 1) * 100}%"></em></i>${Object.keys(b.status).filter((k) => b.status[k] > 0).map((k) => `<u>${{ confuse: '亂', stun: '暈', blind: '盲', weak: '弱' }[k]}</u>`).join('')}</div>`;
-    h.innerHTML = `<div class="win bfoe">${this.foes.map(row).join('')}</div><div class="win bally"><div class="bsp">策略值 ${this.o.S.sp} / ${this.o.S.spMax}</div>${this.allies.map(row).join('')}</div>`;
+    h.innerHTML = `<div class="win bfoe">${this.foes.map(row).join('')}</div><div class="win bally"><div class="bsp">策略值 ${this.o.S.sp} / ${this.o.S.spMax}${this.auto ? '<span class="bauto">總攻擊中</span>' : ''}</div>${this.allies.map(row).join('')}</div>`;
   }
   async run() {
     this.hud(); sfx('battle');
@@ -61,12 +61,14 @@ export class Battle {
       const able = this.allies.filter((b) => !b.gone && !b.status.stun);
       for (let i = 0; i < able.length; i++) {
         const b = able[i];
+        if (this.auto) { const t = this.alive('foe').sort((x, y) => x.troops - y.troops)[0]; orders.push({ b, kind: 'attack', target: t }); continue; }
         if (all) { orders.push({ b, kind: 'attack', target: null }); continue; }
         b.marked = true; this.hud();
         const ord = await this.orderFor(b, i === 0);
         b.marked = false; this.hud();
         if (ord === 'back') { if (i > 0) { orders.pop(); i -= 2; } else i--; continue; }
         if (ord.kind === 'flee') { const r = await this.tryFlee(); if (r) return this.finish('fled'); orders.length = 0; i = able.length; break; }
+        if (ord.kind === 'auto') { this.setAuto(true); i--; continue; }
         if (ord.kind === 'allout') { all = true; orders.push({ b, kind: 'attack', target: null }); continue; }
         orders.push(ord);
       }
@@ -74,22 +76,29 @@ export class Battle {
       for (const b of this.alive('foe')) if (!b.status.stun) orders.push(this.foeOrder(b));
       // ---- act, fastest first
       orders.sort((a, b) => b.b.spd * (b.b.buff.spd || 1) * (0.9 + this.R() * 0.2) - a.b.spd * (a.b.buff.spd || 1) * (0.9 + this.R() * 0.2));
-      for (const o of orders) { if (o.b.gone) continue; await this.act(o); this.hud(); const e = this.over(); if (e) return this.finish(e); }
+      for (const o of orders) { if (o.b.gone) continue; await this.act(o); this.hud(); const e = this.over(); if (e) { this.setAuto(false); return this.finish(e); } }
       // ---- statuses wear off
       for (const b of [...this.allies, ...this.foes]) { b.guard = false; for (const k of Object.keys(b.status)) if (b.status[k] > 0) b.status[k]--; }
       this.hud();
     }
-    return this.finish('lose');
+    this.setAuto(false); return this.finish('lose');
+  }
+  // 總攻擊: every general strikes the weakest foe, round after round, until the fight ends or a key is pressed
+  setAuto(on) {
+    if (on === !!this.auto) return; this.auto = on;
+    if (on) { this.banner('總攻擊！（按任意鍵停止）'); this._autoOff = input.on(() => { this.setAuto(false); this.banner('總攻擊停止，下回合起重新下令'); }); }
+    else if (this._autoOff) { this._autoOff(); this._autoOff = null; }
+    this.hud();
   }
   over() { if (!this.alive('foe').length) return 'win'; if (!this.alive('ally').length) return 'lose'; return null; }
   async orderFor(b, first) {
     const S = this.o.S, tac = knows(b.u, S.books), items = Object.entries(S.items).filter(([id, n]) => n > 0 && ITEMS[id] && (ITEMS[id].use === 'battle' || ITEMS[id].use === 'both'));
     const place = (w) => { w.style.left = '50%'; w.style.top = '18%'; w.style.transform = 'translateX(-50%)'; };
     for (;;) {
-      const c = await menu([{ label: '攻擊', value: 'atk' }, { label: '計策', value: 'tac', off: !tac.length, hint: tac.length ? '' : '—' }, { label: '道具', value: 'item', off: !items.length }, { label: '防禦', value: 'guard' }, { label: '全軍突擊', value: 'allout' }, ...(first ? [{ label: this.o.boss ? '撤退（不可）' : '撤退', value: 'flee', off: !!this.o.boss && !this.o.flee }] : [])], { title: b.name, cls: 'bcmd', place, noCancel: first });
+      const c = await menu([{ label: '攻擊', value: 'atk' }, { label: '計策', value: 'tac', off: !tac.length, hint: tac.length ? '' : '—' }, { label: '道具', value: 'item', off: !items.length }, { label: '防禦', value: 'guard' }, { label: '全軍突擊', value: 'allout', hint: '本回合' }, { label: '總攻擊', value: 'auto', hint: '自動' }, ...(first ? [{ label: this.o.boss ? '撤退（不可）' : '撤退', value: 'flee', off: !!this.o.boss && !this.o.flee }] : [])], { title: b.name, cls: 'bcmd', place, noCancel: first });
       if (c == null) return 'back';
       if (c === 'guard') return { b, kind: 'guard' };
-      if (c === 'allout' || c === 'flee') return { b, kind: c };
+      if (c === 'allout' || c === 'flee' || c === 'auto') return { b, kind: c };
       if (c === 'atk') { const t = await this.pickTarget('foe'); if (t) return { b, kind: 'attack', target: t }; continue; }
       if (c === 'tac') {
         const id = await menu(tac.map((t) => ({ label: t, hint: `${TACTICS[t].sp}`, value: t, off: TACTICS[t].sp > S.sp })), { title: `計策（策略值 ${S.sp}）`, cls: 'bcmd tac', place, foot: '' , onMove: (it) => { const f = document.querySelector('.bcmd.tac .mfoot'); if (f && it) f.textContent = TACTICS[it.value].desc; } });

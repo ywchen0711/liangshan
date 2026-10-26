@@ -17,15 +17,16 @@ const SIDEC = { ls: '#2a4a8a', song: '#8a2a22', bandit: '#5a4a32', zhu: '#7a5a22
 
 export function painted(p) {
   if (CACHE.has(p.id)) return CACHE.get(p.id);
-  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = W * 2; c.height = H * 2; const g = c.getContext('2d'); g.scale(2, 2);
   const L = p.look || {}, R = rng(hash(p.id) ^ 0x9e37), female = !!L.female, side = SIDEC[p.side] || '#3a3a4a';
   const old = L.hair === 'white' || (p.lv >= 48 && (L.beard === 'long' || L.beard === 'goatee') && R() < 0.45);
-  const fierce = p.wu - p.zhi > 28, burly = p.wu >= 86 && !female, wise = p.zhi - p.wu > 25;
-  const skin0 = SKIN[L.face] || SKIN.y, skin = mixHex(skin0, R() < 0.5 ? '#c8906a' : '#e0b090', R() * 0.25), hairC = old ? '#cfcac0' : HAIR[L.hair] || ['#1e1814', '#2a201a', '#18140f'][R.int(0, 2)];
+  const menace = !female && p.side === 'bandit', fierce = menace || p.wu - p.zhi > 28, burly = p.wu >= 86 && !female, wise = !menace && p.zhi - p.wu > 25;
+  const skin0 = SKIN[L.face] || SKIN.y, skin = mixHex(mixHex(skin0, R() < 0.5 ? '#c8906a' : '#e0b090', R() * 0.25), '#7a4428', menace ? 0.28 : 0), hairC = old ? '#cfcac0' : HAIR[L.hair] || ['#1e1814', '#2a201a', '#18140f'][R.int(0, 2)];
   const armour = L.hat === 'helm' || L.hat === 'fur' || ((p.troop === '騎' || p.wu > 80) && !wise && L.hat !== 'monk' && L.hat !== 'taoist' && L.hat !== 'scholar' && L.hat !== 'official' && !female && R() < 0.6);
   // proportions, slightly different for everyone
   const cx = 80 + R.int(-2, 2), jaw = (female ? 22 : burly ? 31 : 27) + R.int(-3, 3), eyeY = 90 + R.int(-3, 3), chin = (female ? 132 : burly ? 143 : 138) + R.int(-4, 5), top = 46 + R.int(-2, 2), noseL = R.int(-3, 3), mouthW = R.int(-1, 2);
-  const eyeGap = 13 + R.int(-1, 1), eyeW = female ? 8 : 7.5;
+  const eyeGap = 13 + R.int(-1, 1), eyeW = female ? 8 : 7.5, scarK = menace ? R.int(0, 3) : 0, patch = menace && R() < 0.15;
+  const beardK = menace && (!L.beard || L.beard === 'none') ? (R() < 0.6 ? 'stub' : 'full') : L.beard;
   // ---- the ground: smoke in the side's colour, darkening outward
   const bg = g.createRadialGradient(60, 70, 10, 80, 100, 150); bg.addColorStop(0, sh(side, 0.95)); bg.addColorStop(0.55, sh(side, 0.42)); bg.addColorStop(1, '#07070b'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 26; i++) { const x = R() * W, y = R() * H, r = 12 + R() * 36, sg = g.createRadialGradient(x, y, 0, x, y, r); sg.addColorStop(0, `rgba(255,240,220,${0.03 + R() * 0.05})`); sg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sg; g.fillRect(x - r, y - r, r * 2, r * 2); }
@@ -67,20 +68,26 @@ export function painted(p) {
   g.strokeStyle = 'rgba(170,200,255,0.32)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(cx + jr - 1, top + 30); g.bezierCurveTo(cx + jr, eyeY + 18, cx + jr - 4, chin - 18, fx + 9, chin - 3); g.stroke();
   // age and hardship
   if (old || p.lv > 55 && !female) { g.strokeStyle = mixHex(skin, '#3a1208', 0.5); g.globalAlpha = 0.5; g.lineWidth = 0.7; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(fx - 12, top + 18 + i * 4); g.quadraticCurveTo(fx, top + 16 + i * 4, fx + 12, top + 18 + i * 4); g.stroke(); } for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(fx + sd * 7, eyeY + 19); g.quadraticCurveTo(fx + sd * 12, eyeY + 29, fx + sd * 11, eyeY + 37); g.stroke(); for (let i = 0; i < 2; i++) { g.beginPath(); g.moveTo(fx + sd * (eyeGap + 8), eyeY - 1 + i * 3); g.lineTo(fx + sd * (eyeGap + 12), eyeY + 1 + i * 4); g.stroke(); } } g.globalAlpha = 1; }
-  if (['楊志', '史進', '雷橫'].includes(p.id) || (R() < 0.08 && fierce)) { g.strokeStyle = 'rgba(110,35,25,0.55)'; g.lineWidth = 1.1; g.beginPath(); g.moveTo(fx - 19, eyeY + 6); g.lineTo(fx - 10, eyeY + 21); g.stroke(); }
+  if (menace) { // the frown knotted between the brows, a creased forehead, deep folds from nose to mouth
+    g.strokeStyle = mixHex(skin, '#2a0c04', 0.6); g.lineWidth = 0.9; g.globalAlpha = 0.65; for (const dx of [-2.5, 2.5]) { g.beginPath(); g.moveTo(fx + dx, eyeY - 12); g.lineTo(fx + dx * 0.6, eyeY - 4); g.stroke(); } for (let i = 0; i < 2; i++) { g.beginPath(); g.moveTo(fx - 11, top + 20 + i * 5); g.quadraticCurveTo(fx, top + 17 + i * 5, fx + 11, top + 20 + i * 5); g.stroke(); } g.lineWidth = 1.3; for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(fx + sd * 6, eyeY + 18); g.quadraticCurveTo(fx + sd * 13, eyeY + 28, fx + sd * 12, eyeY + 38); g.stroke(); } g.globalAlpha = 1;
+    // scars: across the cheek, through the brow, along the jaw — a raised pale line with the stitch marks
+    g.lineCap = 'round'; for (let k = 0; k < scarK; k++) { const [x0, y0, x1, y1] = [[fx - 20, eyeY + 4, fx - 8, eyeY + 24], [fx + 8, eyeY - 14, fx + 16, eyeY + 6], [fx - 16, chin - 18, fx + 2, chin - 6]][k]; g.strokeStyle = 'rgba(120,40,30,0.75)'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); g.strokeStyle = 'rgba(255,200,180,0.45)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(x0 + 0.6, y0); g.lineTo(x1 + 0.6, y1); g.stroke(); for (let t = 0.2; t < 1; t += 0.25) { const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t; g.strokeStyle = 'rgba(110,40,30,0.6)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(x - 2, y + 1.5); g.lineTo(x + 2, y - 1.5); g.stroke(); } } }
+  if (['楊志', '史進', '雷橫'].includes(p.id) || (R() < 0.08 && fierce && !menace)) { g.strokeStyle = 'rgba(110,35,25,0.55)'; g.lineWidth = 1.1; g.beginPath(); g.moveTo(fx - 19, eyeY + 6); g.lineTo(fx - 10, eyeY + 21); g.stroke(); }
   g.restore();
   // ---- the eyes: deep in their sockets, dark irises, a glint, heavy lids; the brows set by temper
   for (const sd of [-1, 1]) {
-    const ex = fx + sd * eyeGap, ey = eyeY, far = sd > 0, w = (female ? 8.5 : 8) * (far ? 0.9 : 1), h = (fierce ? 2.8 : female ? 4 : 3.3);
-    g.fillStyle = '#ddd0bf'; g.beginPath(); g.moveTo(ex - w, ey + 0.5); g.quadraticCurveTo(ex - 1, ey - h * 1.5, ex + w, ey + (fierce ? -sd * 1 : 0)); g.quadraticCurveTo(ex, ey + h * 1.05, ex - w, ey + 0.5); g.fill();
-    g.save(); g.clip(); const ig = g.createRadialGradient(ex - 0.5, ey - 1, 0.3, ex + 0.5, ey, 3.8); ig.addColorStop(0, female ? '#6a4228' : '#4a2c18'); ig.addColorStop(0.7, female ? '#2e1a10' : '#1e120a'); ig.addColorStop(1, '#0a0604'); g.fillStyle = ig; g.beginPath(); g.arc(ex + 0.5 - (far ? 0.5 : 0), ey, 3.6, 0, 7); g.fill(); g.fillStyle = '#040206'; g.beginPath(); g.arc(ex + 0.5, ey, 1.5, 0, 7); g.fill(); g.fillStyle = 'rgba(30,10,5,0.55)'; g.fillRect(ex - w, ey - h * 1.6, w * 2, h * 0.95); g.restore();
-    g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(ex - 0.8, ey - 1.2, 0.95, 0, 7); g.fill();
+    const ex = fx + sd * eyeGap, ey = eyeY, far = sd > 0, w = (female ? 8.5 : 8) * (far ? 0.9 : 1), h = menace ? 2.3 : (fierce ? 2.8 : female ? 4 : 3.3);
+    if (patch && far) { g.fillStyle = '#16100c'; g.beginPath(); g.ellipse(ex, ey, w + 1.5, 6, 0.1, 0, 7); g.fill(); g.strokeStyle = '#16100c'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(ex - w, ey - 3); g.lineTo(fx - 22, eyeY - 16); g.moveTo(ex + w, ey - 2); g.lineTo(cx + jaw, eyeY - 4); g.stroke(); g.strokeStyle = 'rgba(255,255,255,0.15)'; g.lineWidth = 1; g.beginPath(); g.arc(ex - 1, ey - 1, 3.5, 3.6, 5); g.stroke(); continue; }
+    g.fillStyle = menace ? '#d4c2a0' : '#ddd0bf'; g.beginPath(); g.moveTo(ex - w, ey + 0.5); g.quadraticCurveTo(ex - 1, ey - h * 1.5, ex + w, ey + (fierce ? -sd * 1 : 0)); g.quadraticCurveTo(ex, ey + h * 1.05, ex - w, ey + 0.5); g.fill();
+    g.save(); g.clip(); const ig = g.createRadialGradient(ex - 0.5, ey - 1, 0.3, ex + 0.5, ey, 3.8); ig.addColorStop(0, female ? '#6a4228' : '#4a2c18'); ig.addColorStop(0.7, female ? '#2e1a10' : '#1e120a'); ig.addColorStop(1, '#0a0604'); g.fillStyle = ig; const ir = menace ? 2.9 : 3.6; g.beginPath(); g.arc(ex + 0.5 - (far ? 0.5 : 0), ey, ir, 0, 7); g.fill(); g.strokeStyle = female ? 'rgba(150,100,60,0.6)' : 'rgba(120,80,50,0.5)'; g.lineWidth = 0.5; g.beginPath(); g.arc(ex + 0.5 - (far ? 0.5 : 0), ey + 0.4, ir * 0.62, 0.2, 2.9); g.stroke(); g.fillStyle = '#040206'; g.beginPath(); g.arc(ex + 0.5, ey, menace ? 1.1 : 1.5, 0, 7); g.fill(); if (menace) { g.strokeStyle = 'rgba(170,40,30,0.35)'; g.lineWidth = 0.4; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(ex + sd * w * 0.9, ey + k * 0.6 - 0.5); g.lineTo(ex + sd * w * 0.45, ey); g.stroke(); } } g.fillStyle = 'rgba(30,10,5,0.55)'; g.fillRect(ex - w, ey - h * 1.6, w * 2, h * 0.95); g.restore();
+    g.fillStyle = '#fffaf0'; g.beginPath(); g.arc(ex - 0.8, ey - 1.2, menace ? 0.7 : 0.95, 0, 7); g.fill(); g.fillStyle = 'rgba(255,250,240,0.55)'; g.beginPath(); g.arc(ex + 1.4, ey + 1, 0.45, 0, 7); g.fill();
+    g.strokeStyle = '#140a06'; g.lineWidth = 0.6; for (let k = 0; k < (female ? 7 : 5); k++) { const t = 0.35 + k / 9, x = ex - w + t * w * 2, y = ey - h * 1.45 * Math.sin(t * Math.PI) + 0.4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + sd * 0.6 + (t - 0.5) * 2, y - (female ? 2.4 : 1.4)); g.stroke(); }
     g.strokeStyle = '#140a06'; g.lineWidth = female ? 1.8 : 1.6; g.beginPath(); g.moveTo(ex - w - 0.5, ey + 0.8); g.quadraticCurveTo(ex - 1, ey - h * 1.6, ex + w + 0.6, ey + (fierce ? -sd * 1.2 : 0.3)); g.stroke();
     if (female) { g.lineWidth = 1.2; g.beginPath(); g.moveTo(ex + sd * w, ey); g.lineTo(ex + sd * (w + 3), ey - 1.6); g.stroke(); }
     g.strokeStyle = mixHex(skin, '#3a1208', 0.45); g.globalAlpha = 0.75; g.lineWidth = 0.7; g.beginPath(); g.moveTo(ex - w + 1, ey + 2); g.quadraticCurveTo(ex, ey + h + 1.5, ex + w - 1, ey + 2); g.stroke();
     g.lineWidth = 0.9; g.beginPath(); g.moveTo(ex - w + 0.5, ey - h - 2.8); g.quadraticCurveTo(ex - 1, ey - h * 1.9 - 2.2, ex + w, ey - h - 1.6); g.stroke(); g.globalAlpha = 1;
-    const bc = old ? '#bcb8b0' : sh(hairC, 1.05), inner = fx + sd * 4, outer = fx + sd * (eyeGap + w + 3), by = ey - h - 6.5, tilt = fierce ? 4.5 : wise ? -1 : 1.5, thick = female ? 1.2 : burly || fierce ? 3.4 : 2.4;
-    for (let i = 0; i < (female ? 16 : 30); i++) { const t = i / (female ? 15 : 29), x = inner + (outer - inner) * t, y = by + tilt * (1 - t) - Math.sin(t * Math.PI) * (female ? 2.6 : 1.8) + (R() - 0.5) * thick; g.strokeStyle = sh(bc, 0.7 + R() * 0.5, 0.92); g.lineWidth = female ? 0.9 : 1.15; g.beginPath(); g.moveTo(x, y); g.lineTo(x + sd * 2.8, y - 0.9 - R()); g.stroke(); }
+    const bc = old ? '#bcb8b0' : sh(hairC, 1.05), inner = fx + sd * 4, outer = fx + sd * (eyeGap + w + 3), by = ey - h - 6.5, tilt = menace ? 7 : fierce ? 4.5 : wise ? -1 : 1.5, thick = female ? 1.2 : menace ? 4.4 : burly || fierce ? 3.4 : 2.4;
+    const nB = female ? 16 : menace ? 44 : 30; for (let i = 0; i < nB; i++) { const t = i / (nB - 1), x = inner + (outer - inner) * t, y = by + tilt * (1 - t) - Math.sin(t * Math.PI) * (female ? 2.6 : 1.8) + (R() - 0.5) * thick; g.strokeStyle = sh(bc, 0.7 + R() * 0.5, 0.92); g.lineWidth = female ? 0.9 : 1.15; g.beginPath(); g.moveTo(x, y); g.lineTo(x + sd * 2.8, y - 0.9 - R()); g.stroke(); }
   }
   // ---- the nose: a short lit bridge, a rounded tip, the far side in shade, the wings of the nostrils
   const nb = eyeY + 22 + (burly ? 2 : 0) + noseL, nw = (burly ? 7 : female ? 4.5 : 6) + (noseL > 1 ? 0.8 : 0), nx = fx - 1;
@@ -93,14 +100,18 @@ export function painted(p) {
   const my = nb + (female ? 11 : 12.5) - noseL * 0.3, mw = (female ? 7.5 : 9) + mouthW, mx = fx - 0.5;
   g.fillStyle = female ? '#9a3038' : mixHex(skin, '#5a1a10', 0.45); g.beginPath(); g.moveTo(mx - mw, my); g.quadraticCurveTo(mx - 3, my - 3.2, mx, my - 2); g.quadraticCurveTo(mx + 3, my - 3.2, mx + mw, my); g.closePath(); g.fill();
   g.fillStyle = female ? '#c04a52' : mixHex(skin, '#8a3a2a', 0.35); g.beginPath(); g.moveTo(mx - mw + 1.5, my + 0.5); g.quadraticCurveTo(mx, my + (female ? 5.5 : 4.2), mx + mw - 1.5, my + 0.5); g.closePath(); g.fill();
-  g.fillStyle = 'rgba(255,220,200,0.35)'; g.beginPath(); g.ellipse(mx - 1, my + 2.4, 3, 0.9, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,220,200,0.35)'; g.beginPath(); g.ellipse(mx - 1, my + 2.4, 3, 0.9, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,225,205,0.22)'; g.beginPath(); g.ellipse(mx - 3, my - 1.6, 2, 0.5, -0.2, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,225,200,0.25)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(mx - 1.2, my - 2.4); g.lineTo(mx - 1.6, nb + 4); g.moveTo(mx + 1.2, my - 2.4); g.lineTo(mx + 1, nb + 4); g.stroke();
   g.strokeStyle = '#220c08'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(mx - mw, my + (fierce ? 1.2 : 0)); g.quadraticCurveTo(mx, my - (fierce ? 0 : 0.8), mx + mw, my + (fierce ? 1.2 : 0)); g.stroke();
+  if (menace) { // a snarl: the lip curled up at one side over bared teeth
+    g.fillStyle = '#1a0806'; g.beginPath(); g.moveTo(mx - mw + 2, my + 0.5); g.quadraticCurveTo(mx, my - 1.2, mx + mw - 1, my - 1.5); g.quadraticCurveTo(mx + 2, my + 3.5, mx - mw + 2, my + 0.5); g.fill(); g.fillStyle = '#e8dcc0'; for (let k = 0; k < 5; k++) { const x = mx - mw + 4 + k * 2.6; g.fillRect(x, my - 0.6 + (k > 3 ? -0.6 : 0), 2, 1.6); } g.fillStyle = '#f0e8d0'; g.beginPath(); g.moveTo(mx + mw - 3.5, my - 1); g.lineTo(mx + mw - 2.5, my + 1.8); g.lineTo(mx + mw - 1.5, my - 1.2); g.fill(); g.strokeStyle = '#220c08'; g.lineWidth = 1; g.beginPath(); g.moveTo(mx + mw - 1, my - 1.5); g.lineTo(mx + mw + 1.5, my - 3.5); g.stroke(); }
   soft2(g, mx, my + 7, 8, 3, 'rgba(40,12,6,1)', 0.3);
   if (female) { g.fillStyle = 'rgba(220,100,100,0.18)'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(fx + sd * 15, eyeY + 15, 7, 4, 0, 0, 7); g.fill(); } }
   // ---- the beard, hair by hair
-  beard(g, R, L.beard, old ? '#d0ccc4' : hairC, { cx: fx, my, nb, chin, jaw, eyeY, burly });
+  beard(g, R, beardK, old ? '#d0ccc4' : hairC, { cx: fx, my, nb, chin, jaw, eyeY, burly });
   // ---- hair and what is worn on the head
   headwear(g, R, p, L, { cx: cx - 1, top, jaw: jaw + 1, eyeY, hairC, skin, side, female });
+  if (L.hat !== 'monk' && L.hat !== 'helm') for (const sd of [-1, 1]) for (let k = 0; k < (female ? 8 : 14); k++) { const x = cx + sd * (jaw - 1 - R() * 3), y = top + 26 + R() * 6; g.strokeStyle = sh(hairC, 0.7 + R() * 0.7, 0.8); g.lineWidth = 0.6; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + sd * 1.5, y + 10, x - sd * 0.5 + (R() - 0.5) * 2, y + (female ? 26 : 14) + R() * 8); g.stroke(); }
+  if (L.hat === 'helm') { g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(cx - 12, top - 4, 3, 1.4, -0.6, 0, 7); g.fill(); }
   g.restore();
   // ---- finish: a vignette, a little warmth, brushwork over the whole
   const vg = g.createRadialGradient(W * 0.45, H * 0.42, 40, W / 2, H / 2, 125); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
@@ -226,12 +237,15 @@ function headwear(g, R, p, L, o) {
 }
 // ---------------------------------------------------------------- brushwork: short strokes of the picture's own colours along its edges
 function brush(c, R) {
-  const g = c.getContext('2d'), d = g.getImageData(0, 0, W, H).data, lum = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
-  for (let k = 0; k < 2600; k++) {
-    const x = 2 + Math.floor(R() * (W - 4)), y = 2 + Math.floor(R() * (H - 4)), i = (y * W + x) * 4, gx = lum(x + 2, y) - lum(x - 2, y), gy = lum(x, y + 2) - lum(x, y - 2), m = Math.hypot(gx, gy);
-    const a = m > 8 ? Math.atan2(gy, gx) + Math.PI / 2 : Math.PI / 2 + (R() - 0.5) * 0.8, L = m > 40 ? 2.5 : 5, ca = Math.cos(a) * L / 2, sa = Math.sin(a) * L / 2;
-    g.strokeStyle = `rgba(${d[i]},${d[i + 1]},${d[i + 2]},0.35)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x - ca, y - sa); g.lineTo(x + ca, y + sa); g.stroke();
+  const g = c.getContext('2d'), w = c.width, h = c.height, d = g.getImageData(0, 0, w, h).data, lum = (x, y) => { const i = (y * w + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; };
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  for (let k = 0; k < 9000; k++) {
+    const x = 3 + Math.floor(R() * (w - 6)), y = 3 + Math.floor(R() * (h - 6)), i = (y * w + x) * 4, gx = lum(x + 3, y) - lum(x - 3, y), gy = lum(x, y + 3) - lum(x, y - 3), m = Math.hypot(gx, gy);
+    if (m > 70) continue; // keep the sharp edges — eyes, lips, the lines of the armour — crisp
+    const a = m > 8 ? Math.atan2(gy, gx) + Math.PI / 2 : Math.PI / 2 + (R() - 0.5) * 0.8, L = m > 30 ? 4 : 9, ca = Math.cos(a) * L / 2, sa = Math.sin(a) * L / 2;
+    g.strokeStyle = `rgba(${d[i]},${d[i + 1]},${d[i + 2]},0.3)`; g.lineWidth = 1.8; g.beginPath(); g.moveTo(x - ca, y - sa); g.lineTo(x + ca, y + sa); g.stroke();
   }
   // a fine grain
-  const img = g.getImageData(0, 0, W, H), q = img.data; for (let i = 0; i < q.length; i += 4) { const v = (R() - 0.5) * 10; q[i] += v; q[i + 1] += v; q[i + 2] += v; } g.putImageData(img, 0, 0);
+  const img = g.getImageData(0, 0, w, h), q = img.data; for (let i = 0; i < q.length; i += 4) { const v = (R() - 0.5) * 9; q[i] += v; q[i + 1] += v; q[i + 2] += v; } g.putImageData(img, 0, 0);
+  g.restore();
 }

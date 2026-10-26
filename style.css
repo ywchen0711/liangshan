@@ -52,6 +52,7 @@ html, body { margin: 0; height: 100%; background: #05060e; color: var(--txt); ov
 .brow u { text-decoration: none; color: #e8a0ff; font-size: .8em; } .brow.out { opacity: .4; } .brow.mk b { color: var(--gold); }
 .bsp { color: #a8d8ff; font-size: .85em; margin-bottom: calc(var(--s) * 1px); }
 .menu.bcmd { right: auto; z-index: 22; }
+.bauto { float: right; color: #ff8a5a; font-weight: 900; animation: bauto 0.8s ease-in-out infinite alternate; } @keyframes bauto { to { opacity: 0.45; } }
 #bbanner { left: 50%; top: calc(var(--s) * 6px); transform: translateX(-50%); font-weight: 900; color: var(--gold); white-space: nowrap; z-index: 21; pointer-events: none !important; }
 /* title */
 .titlebox { position: absolute; left: 0; right: 0; top: calc(var(--s) * 30px); text-align: center; pointer-events: none !important; }
