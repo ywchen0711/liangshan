@@ -11,25 +11,28 @@ export const lt = (c, k = 0.25) => mixC(c, '#fff8e8', k);
 
 export function grid(w, h) {
   const a = new Array(w * h).fill(null);
+  let ox = 0, oy = 0;
   const G = {
     w, h, a,
-    set(x, y, c) { x = Math.floor(x); y = Math.floor(y); if (c && x >= 0 && y >= 0 && x < w && y < h) a[y * w + x] = c; },
-    get(x, y) { return x >= 0 && y >= 0 && x < w && y < h ? a[y * w + x] : null; },
+    // shift where everything is drawn (to make room above or beside without changing the drawing)
+    offset(dx, dy) { ox = dx; oy = dy; return G; },
+    set(x, y, c) { x = Math.floor(x + ox); y = Math.floor(y + oy); if (c && x >= 0 && y >= 0 && x < w && y < h) a[y * w + x] = c; },
+    get(x, y) { x += ox; y += oy; return x >= 0 && y >= 0 && x < w && y < h ? a[y * w + x] : null; },
     rect(x, y, rw, rh, c) { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) G.set(x + i, y + j, c); },
     line(x0, y0, x1, y1, c) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) G.set(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); },
     // a shape given by a test on pixel centres. col is a colour or (x, y) => colour. o.out: outline colour (false for
     // none); o.shade: rim and shadow tones; o.only: paint only where something is already painted
     shape(test, col, o = {}) {
       const m = new Uint8Array(w * h); let any = 0;
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (test(x + 0.5, y + 0.5, x, y)) { m[y * w + x] = 1; any = 1; }
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (test(x + 0.5 - ox, y + 0.5 - oy, x - ox, y - oy)) { m[y * w + x] = 1; any = 1; }
       if (!any) return m;
       const In = (x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x] === 1;
       const out = o.out === undefined ? OUT : o.out;
-      if (out) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (In(x, y)) continue; if (In(x - 1, y) || In(x + 1, y) || In(x, y - 1) || In(x, y + 1) || (o.thick && (In(x - 1, y - 1) || In(x + 1, y + 1) || In(x - 1, y + 1) || In(x + 1, y - 1)))) G.set(x, y, out); }
+      if (out) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (In(x, y)) continue; if (In(x - 1, y) || In(x + 1, y) || In(x, y - 1) || In(x, y + 1) || (o.thick && (In(x - 1, y - 1) || In(x + 1, y + 1) || In(x - 1, y + 1) || In(x + 1, y - 1)))) a[y * w + x] = out; }
       const sh = o.shade !== false;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         if (!In(x, y)) continue; if (o.only && !a[y * w + x]) continue;
-        let c = typeof col === 'function' ? col(x, y) : col; if (!c) continue;
+        let c = typeof col === 'function' ? col(x - ox, y - oy) : col; if (!c) continue;
         if (sh) { if (!In(x + 1, y) || !In(x, y + 1) || (!In(x + 2, y) && !In(x + 1, y + 1))) c = dk(c, o.dk ?? 0.22); else if (!In(x - 1, y) || !In(x, y - 1)) c = lt(c, o.lt ?? 0.2); }
         a[y * w + x] = c;
       }

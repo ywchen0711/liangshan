@@ -2,7 +2,7 @@
 // their soldiers; a general's soldiers are their life. Each round you give every general an order — attack, a
 // tactic from the army's strategy points, an item, hold the line, all-out attack, or retreat — then everyone acts in
 // order of speed. Generals beaten in the field may be talked into joining.
-import { battler, soldier, backdrop } from './art.js';
+import { battler, soldier, backdrop, flag, beastArt } from './art.js';
 import { painted } from './face.js';
 import { who, newUnit, stats, damage, hitChance, tacticPower, tacticHits, gainExp, knows, spMax, recruitChance, TACTICS, ITEMS, GEAR } from './rules.js';
 import { GEAR_LIST } from './data/gear.js';
@@ -27,21 +27,31 @@ export class Battle {
   }
   alive(side) { return (side === 'ally' ? this.allies : this.foes).filter((b) => !b.gone); }
   // where each one stands on the field
-  pos(b) { const n = b.side === 'ally' ? this.allies.length : this.foes.length, gap = n > 1 ? Math.min(22, 84 / (n - 1)) : 0, y = 78 - gap * (n - 1) / 2 + b.i * gap, colX = b.side === 'ally' ? 300 : 84; return [colX + (b.i % 2 ? (b.side === 'ally' ? 22 : -22) : 0), Math.round(y)]; }
+  pos(b) { const n = b.side === 'ally' ? this.allies.length : this.foes.length, gap = n > 1 ? Math.min(24, 88 / (n - 1)) : 0, y = 82 - gap * (n - 1) / 2 + b.i * gap, colX = b.side === 'ally' ? 300 : 84; return [colX + (b.i % 2 ? (b.side === 'ally' ? 22 : -22) : 0), Math.round(y)]; }
   render(g, t) {
     this.t = t; g.imageSmoothingEnabled = false; g.drawImage(backdrop(this.o.bg || 'plain'), 0, 0, LW, 150);
     g.fillStyle = '#1a0a06'; g.fillRect(0, 150, LW, LH - 150);
-    for (const b of [...this.foes, ...this.allies]) {
-      if (b.gone && !b.fade) continue; const [x0, y0] = this.pos(b), dir = b.side === 'ally' ? -1 : 1, x = x0 + b.dx * dir, y = y0, frame = Math.floor(t * 4 + b.i) % 2;
+    // the war flags at the back of each army
+    const fs = this.foes[0]?.p?.side, fside = !fs || fs === 'ls' ? 'bandit' : fs;
+    g.drawImage(flag(fside, t), 14, 34); g.drawImage(flag('ls', t + 0.4), 342, 34);
+    // everyone, back to front
+    const all = [...this.foes, ...this.allies].filter((b) => !b.gone || b.fade).map((b) => [b, this.pos(b)]).sort((a, b) => a[1][1] - b[1][1]);
+    for (const [b, [x0, y0]] of all) {
+      const dir = b.side === 'ally' ? -1 : 1, x = Math.round(x0 + b.dx * dir), y = y0, frame = Math.floor(t * 4 + b.i) % 2, troop = b.p.troop || '步';
       g.save(); if (b.fade) g.globalAlpha = Math.max(0, b.fade); if (b.status.confuse) g.globalAlpha *= 0.85;
-      // the ranks: up to eight soldiers behind the general, fewer as they fall
+      // the ranks: up to eight soldiers of the general's kind behind them, fewer as they fall
       const n = Math.ceil(clamp(b.troops / b.max, 0, 1) * 8), col = b.side === 'ally' ? '#3a6ab8' : '#a83a2a';
-      for (let k = 0; k < n; k++) { const sx = x - dir * (22 + (k % 4) * 9) + (b.charge || 0) * dir * 30, sy = y + 4 + Math.floor(k / 4) * 9 + (k % 2) * 2; g.save(); g.translate(sx, sy); if (dir < 0) g.scale(-1, 1); g.drawImage(soldier(col, frame + k), -4, 0); g.restore(); }
-      g.save(); g.translate(x, y - 8); if (dir < 0) g.scale(-1, 1); const img = b.p.beast ? beastImg(b.p, frame) : battler(b.p, frame); g.drawImage(img, -16, 0); g.restore();
-      if (b.flash > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = b.flash; g.fillStyle = '#ffffff'; g.fillRect(x - 16, y - 8, 32, 32); g.globalCompositeOperation = 'source-over'; }
+      for (let k = n - 1; k >= 0; k--) { const sx = Math.round(x - dir * (24 + (k % 4) * 10) + (b.charge || 0) * dir * 30), sy = y + 4 + Math.floor(k / 4) * 8 - (k % 4 === 1 || k % 4 === 3 ? 2 : 0); g.save(); g.translate(sx, sy); if (dir < 0) g.scale(-1, 1); g.drawImage(soldier(col, frame + k, troop), -8, -16); g.restore(); }
+      // dust thrown up by a charge
+      if ((b.charge || 0) > 0.15) { const R = rng(Math.floor(t * 20) + b.i); g.fillStyle = 'rgba(200,180,140,0.55)'; for (let k = 0; k < 7; k++) { const dx = -dir * (8 + R() * 30), r = 2 + R() * 4; g.beginPath(); g.arc(x + dx, y + 20 - R() * 6, r * b.charge, 0, 7); g.fill(); } }
+      g.save(); g.translate(x, y); if (dir < 0) g.scale(-1, 1);
+      const img = b.p.beast ? beastArt(b.p, frame) : battler(b.p, frame), ox = -24, oy = b.p.beast ? -16 : -32;
+      g.drawImage(img, ox, oy);
+      if (b.flash > 0) { g.globalAlpha *= b.flash; g.filter = 'brightness(4)'; g.drawImage(img, ox, oy); g.filter = 'none'; }
+      g.restore();
       // a little bar of soldiers under them
       g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(x - 14, y + 26, 28, 3); g.fillStyle = b.troops / b.max > 0.5 ? '#5ad85a' : b.troops / b.max > 0.25 ? '#e8c840' : '#e84a3a'; g.fillRect(x - 14, y + 26, 28 * clamp(b.troops / b.max, 0, 1), 3);
-      if (b.marked) { g.strokeStyle = '#ffe070'; g.lineWidth = 1; g.strokeRect(x - 18, y - 12, 36, 42); }
+      if (b.marked) { g.strokeStyle = '#ffe070'; g.lineWidth = 1; g.strokeRect(x - 20, y - 30, 40, 60); }
       g.restore();
     }
     for (const f of this.fx) drawFx(g, f, t);
@@ -186,7 +196,7 @@ export class Battle {
   }
   useItem(id) { const S = this.o.S; S.items[id] = (S.items[id] || 0) - 1; if (S.items[id] <= 0) delete S.items[id]; }
   hurt(t, n, crit) {
-    t.troops = Math.max(0, t.troops - n); t.flash = 1; this.pop(t, String(n), crit ? '#ffd040' : '#ffffff');
+    t.troops = Math.max(0, t.troops - n); t.flash = 1; this.pop(t, String(n), crit ? '#ffd040' : '#ffffff'); this.fx.push({ kind: 'slash', at: this.pos(t), t0: this.t, life: 0.35, crit });
     const fade = () => { t.flash = Math.max(0, t.flash - 0.1); if (t.flash > 0) requestAnimationFrame(fade); }; fade();
     if (t.troops <= 0 && !t.gone) { t.gone = true; t.fade = 1; this.pop(t, '潰散', '#ff8a8a'); const f = () => { t.fade -= 0.04; if (t.fade > 0) requestAnimationFrame(f); else t.fade = 0; }; setTimeout(f, 300); }
   }
@@ -238,19 +248,13 @@ export class Battle {
 }
 const R0 = (arr, id) => arr[hash(id) % arr.length];
 // a tiger, or the black-wind spirit soldiers of the sorcerers
-const BEAST = new Map();
-function beastImg(p, frame) {
-  const key = p.beast + frame; if (BEAST.has(key)) return BEAST.get(key);
-  const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
-  const px = (x, y, col, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-  if (p.beast === 'tiger') { px(4, 14, '#e8a030', 22, 9); px(22, 10, '#e8a030', 9, 9); px(25, 13, '#1a1a1a'); px(29, 14, '#c83a2a', 2, 1); for (let x = 6; x < 24; x += 4) px(x, 14, '#2a1a0a', 2, 9); px(23, 10, '#2a1a0a', 1, 4); px(2, 13 + frame, '#e8a030', 3, 2); for (const x of [6, 10, 18, 22]) px(x, 23, '#c88a20', 3, 6 - ((x / 4 + frame) % 2)); px(8, 18, '#f8f0e0', 14, 3); }
-  else { g.globalAlpha = 0.85; px(8, 4, '#3a2a4a', 16, 24); px(10, 2, '#c8a040', 12, 4); px(12, 8, '#e84a3a', 2, 2); px(18, 8, '#e84a3a', 2, 2); for (let i = 0; i < 6; i++) px(4 + i * 4, 26 + ((i + frame) % 2) * 2, '#2a1a3a', 3, 4); }
-  BEAST.set(key, c); return c;
-}
 // tactic effects over a target
 function drawFx(g, f, t) {
   const k = (t - f.t0) / f.life, [x, y] = f.at, R = rng(Math.floor(f.t0 * 1000));
   g.save();
+  if (f.kind === 'slash') { // the stroke of a blade across the target, and sparks
+    g.globalAlpha = 1 - k; g.strokeStyle = f.crit ? '#ffe070' : '#ffffff'; g.lineWidth = f.crit ? 3 : 2; g.beginPath(); g.arc(x - 6, y - 14, 18, -0.2 + k * 0.6, 1.1 + k * 0.6); g.stroke();
+    g.fillStyle = '#fff4c0'; for (let i = 0; i < 8; i++) { const a = R() * 6.28, r = 4 + k * 16 * R(); g.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y - 4 + Math.sin(a) * r), 1, 1); } }
   if (f.kind === 'fire') for (let i = 0; i < 12; i++) { const a = R() * 6.28, r = R() * 14, h = 6 + R() * 12; g.fillStyle = ['#ff4a1a', '#ff8a2a', '#ffd040'][i % 3]; g.globalAlpha = 1 - k; g.fillRect(x + Math.cos(a) * r, y + 10 - k * h - R() * 8, 3, 5); }
   if (f.kind === 'water') { g.globalAlpha = 1 - k; g.fillStyle = '#4a8ae8'; g.fillRect(x - 24 + k * 10, y + 4, 48, 14 * Math.sin(k * Math.PI)); g.fillStyle = '#a8d8ff'; for (let i = 0; i < 8; i++) g.fillRect(x - 22 + i * 6, y + 2 - Math.sin(k * 6 + i) * 3, 3, 2); }
   if (f.kind === 'rock') for (let i = 0; i < 6; i++) { g.fillStyle = '#7a7468'; g.fillRect(x - 15 + i * 6, y - 40 + k * 60 + (i % 2) * 6, 6, 5); g.fillStyle = '#5a544a'; g.fillRect(x - 15 + i * 6, y - 36 + k * 60 + (i % 2) * 6, 6, 1); }
