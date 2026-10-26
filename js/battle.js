@@ -2,7 +2,8 @@
 // their soldiers; a general's soldiers are their life. Each round you give every general an order — attack, a
 // tactic from the army's strategy points, an item, hold the line, all-out attack, or retreat — then everyone acts in
 // order of speed. Generals beaten in the field may be talked into joining.
-import { battler, soldier, backdrop, portrait } from './art.js';
+import { battler, soldier, backdrop } from './art.js';
+import { painted } from './face.js';
 import { who, newUnit, stats, damage, hitChance, tacticPower, tacticHits, gainExp, knows, spMax, recruitChance, TACTICS, ITEMS, GEAR } from './rules.js';
 import { GEAR_LIST } from './data/gear.js';
 import { ITEM_LIST } from './data/items.js';
@@ -11,6 +12,10 @@ import { rng, hash, wait, clamp, esc } from './util.js';
 import { sfx } from './sound.js';
 
 const LW = 384, LH = 224;
+// a small face for each general in the lists below the field
+const FACES = new Map();
+function faceUrl(p) { if (!p || p.beast || (p.grunt && !p.look)) return null; if (!FACES.has(p.id)) FACES.set(p.id, painted(p).toDataURL()); return FACES.get(p.id); }
+
 export class Battle {
   constructor(o) {
     this.o = o; this.R = rng((Date.now() & 0xffff) ^ hash(o.foes.join())); this.t = 0; this.fx = []; this.pops = [];
@@ -25,7 +30,7 @@ export class Battle {
   pos(b) { const n = b.side === 'ally' ? this.allies.length : this.foes.length, gap = n > 1 ? Math.min(22, 84 / (n - 1)) : 0, y = 78 - gap * (n - 1) / 2 + b.i * gap, colX = b.side === 'ally' ? 300 : 84; return [colX + (b.i % 2 ? (b.side === 'ally' ? 22 : -22) : 0), Math.round(y)]; }
   render(g, t) {
     this.t = t; g.imageSmoothingEnabled = false; g.drawImage(backdrop(this.o.bg || 'plain'), 0, 0, LW, 150);
-    g.fillStyle = '#10142a'; g.fillRect(0, 150, LW, LH - 150);
+    g.fillStyle = '#1a0a06'; g.fillRect(0, 150, LW, LH - 150);
     for (const b of [...this.foes, ...this.allies]) {
       if (b.gone && !b.fade) continue; const [x0, y0] = this.pos(b), dir = b.side === 'ally' ? -1 : 1, x = x0 + b.dx * dir, y = y0, frame = Math.floor(t * 4 + b.i) % 2;
       g.save(); if (b.fade) g.globalAlpha = Math.max(0, b.fade); if (b.status.confuse) g.globalAlpha *= 0.85;
@@ -49,7 +54,7 @@ export class Battle {
   // the windows under the field: the enemy on the left, your generals on the right with their soldiers
   hud() {
     let h = $('bhud'); if (!h) { h = el('div', ''); h.id = 'bhud'; $('ui').appendChild(h); }
-    const row = (b) => `<div class="brow ${b.gone ? 'out' : ''} ${b.marked ? 'mk' : ''}"><b>${esc(b.name)}</b><span class="bt">${b.gone ? '潰散' : b.troops}</span><i><em style="width:${clamp(b.troops / b.max, 0, 1) * 100}%"></em></i>${Object.keys(b.status).filter((k) => b.status[k] > 0).map((k) => `<u>${{ confuse: '亂', stun: '暈', blind: '盲', weak: '弱' }[k]}</u>`).join('')}</div>`;
+    const row = (b) => `<div class="brow ${b.gone ? 'out' : ''} ${b.marked ? 'mk' : ''}">${faceUrl(b.p) ? `<img class="bf" src="${faceUrl(b.p)}">` : '<span class="bf"></span>'}<b>${esc(b.name)}</b><span class="bt">${b.gone ? '潰散' : b.troops}</span><i><em style="width:${clamp(b.troops / b.max, 0, 1) * 100}%"></em></i>${Object.keys(b.status).filter((k) => b.status[k] > 0).map((k) => `<u>${{ confuse: '亂', stun: '暈', blind: '盲', weak: '弱' }[k]}</u>`).join('')}</div>`;
     h.innerHTML = `<div class="win bfoe">${this.foes.map(row).join('')}</div><div class="win bally"><div class="bsp">策略值 ${this.o.S.sp} / ${this.o.S.spMax}${this.auto ? '<span class="bauto">總攻擊中</span>' : ''}</div>${this.allies.map(row).join('')}</div>`;
   }
   async run() {

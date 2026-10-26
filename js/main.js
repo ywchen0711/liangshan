@@ -61,7 +61,7 @@ function sideCodes(x, y, c) {
 }
 function drawMap(t) {
   const cx = P.fx * 16 + 8 - LW / 2, cy = P.fy * 16 + 8 - LH / 2, x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16), frame = Math.floor(t * 1.6) % 3;
-  g.fillStyle = '#2a5aa8'; g.fillRect(0, 0, LW, LH); g.imageSmoothingEnabled = true;
+  g.fillStyle = '#2a5aa8'; g.fillRect(0, 0, LW, LH); g.imageSmoothingEnabled = false;
   const X = (x) => Math.round((x * 16 - cx) * K) / K, Y = (y) => Math.round((y * 16 - cy) * K) / K;
   // the ground
   for (let y = y0 - 1; y <= y0 + VH + 1; y++) for (let x = x0 - 1; x <= x0 + VW + 1; x++) {
@@ -73,7 +73,7 @@ function drawMap(t) {
   // things standing up, row by row so the nearer overlap the farther
   for (let y = y0 - 1; y <= y0 + VH + 2; y++) for (let x = x0 - 1; x <= x0 + VW + 1; x++) {
     if (x < 0 || y < 0 || x >= MW || y >= MH) continue; const c = W[y][x]; if (!'fhM'.includes(c)) continue;
-    const img = standing(c, x, y, y < 12 || sideCodes(x, y, c).includes('N')); if (img) { const hsh = (x * 73856093 ^ y * 19349663) >>> 0, jx = (hsh % 7) - 3, k = c === 'M' ? 0.85 + ((hsh >>> 4) % 5) * 0.08 : 0.92 + ((hsh >>> 4) % 3) * 0.06, w = 16 * k, h = img.height / 3 * k; g.drawImage(img, X(x) + (16 - w) / 2 + jx * (c === 'M' ? 0.9 : 0.5), Y(y) + 16 - h + ((hsh >>> 8) % 3) - 1, w, h); }
+    const img = standing(c, x, y, y < 12 || sideCodes(x, y, c).includes('N')); if (img) { const hsh = (x * 73856093 ^ y * 19349663) >>> 0, jx = (hsh % 7) - 3, w = 16, h = img.height / 3; g.drawImage(img, X(x) + Math.round(jx * (c === 'M' ? 0.7 : 0.4)), Y(y) + 16 - h + ((hsh >>> 8) % 2), w, h); }
   }
   g.font = 'bold 6px "Noto Sans TC", sans-serif'; g.textAlign = 'center';
   for (const p of PLACES) { if (p.x < x0 - 2 || p.x > x0 + VW + 2 || p.y < y0 - 2 || p.y > y0 + VH + 2) continue; const sx = X(p.x), sy = Y(p.y); g.drawImage(placeArt(p), sx - 4, sy - 9, 24, 24);
@@ -81,14 +81,14 @@ function drawMap(t) {
   // the army
   const lead = party()[0]; if (lead) { const img = marcher(who(lead.id), P.dir, P.moving ? Math.floor(t * 8) % 2 : 0, '#3a5aa8'); g.drawImage(img, X(P.fx), Y(P.fy) - 4, 16, 16); }
   const d = dangerAt(P.x, P.y), tn = TILE[W[P.y][P.x]];
-  g.fillStyle = 'rgba(10,14,40,0.7)'; g.fillRect(2, 2, 92, 11); g.font = '6px "Noto Sans TC", sans-serif'; g.textAlign = 'left'; g.fillStyle = '#e8e0c8'; g.fillText(`${d.place.name}附近 · ${tn.name}`, 5, 9.5);
+  g.fillStyle = 'rgba(36,12,6,0.75)'; g.fillRect(2, 2, 92, 11); g.font = '6px "Noto Sans TC", sans-serif'; g.textAlign = 'left'; g.fillStyle = '#e8e0c8'; g.fillText(`${d.place.name}附近 · ${tn.name}`, 5, 9.5);
   g.imageSmoothingEnabled = false;
 }
 function drawTitle(t) {
-  g.drawImage(backdrop('water'), 0, 0, LW, 150); g.fillStyle = '#0e1430'; g.fillRect(0, 150, LW, 74);
+  g.drawImage(backdrop('water'), 0, 0, LW, 150); g.fillStyle = '#1a0a06'; g.fillRect(0, 150, LW, 74);
   g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 0, LW, LH);
   const ids = ['宋江', '盧俊義', '吳用', '林沖', '武松', '魯智深', '李逵', '花榮', '扈三娘', '燕青'];
-  g.imageSmoothingEnabled = true; ids.forEach((id, i) => { const p = painted(PEOPLE[id]); g.globalAlpha = 0.95; g.drawImage(p, 10 + i * 36.6, 150 + Math.sin(t + i) * 2, 34, 42.5); }); g.globalAlpha = 1; g.imageSmoothingEnabled = false;
+  g.imageSmoothingEnabled = false; ids.forEach((id, i) => { const p = painted(PEOPLE[id]); g.globalAlpha = 0.95; g.drawImage(p, 10 + i * 36.6, 150 + Math.sin(t + i) * 2, 34, 42.5); }); g.globalAlpha = 1; g.imageSmoothingEnabled = false;
 }
 // ---------------------------------------------------------------- the story
 const stepNow = () => STORY[S.step];
