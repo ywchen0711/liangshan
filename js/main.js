@@ -7,7 +7,9 @@ import { ITEMS } from './data/items.js';
 import { TACTICS } from './data/tactics.js';
 import { STORY, SIDE } from './data/story.js';
 import { PLACES, PLACE, TILE, MW, MH, buildWorld, dangerAt } from './data/world.js';
-import { tile, placeIcon, walker, portrait, backdrop } from './art.js';
+import { backdrop } from './art.js';
+import { groundTile, roadTile, standing, placeArt, marcher } from './mapart.js';
+import { painted } from './face.js';
 import { who, newUnit, stats, expNeed, knows, spMax, shopOf, gainExp } from './rules.js';
 import { Battle } from './battle.js';
 import { say, menu, confirm, toast, panel, banner, input, press, $, el, faceOf } from './ui.js';
@@ -21,7 +23,7 @@ let S = null, scene = 'title', busy = false, cloud = null, battle = null, last =
 const P = { x: 10, y: 58, fx: 10, fy: 58, dir: 'down', moving: 0, step: 0 };
 
 // ---------------------------------------------------------------- the army
-const fresh = () => ({ v: 1, units: {}, party: [], reserve: [], away: [], joined: {}, dead: [], items: { h0: 5, h1: 2 }, gear: [], gold: 300, sp: 10, spMax: 10, x: 10, y: 58, step: 0, flags: {}, sideDone: {}, books: {}, repel: 0, steps: 0, lastInn: '史家村', prisoners: [], sound: true, battles: 0, dueled: {} });
+const fresh = () => ({ v: 1, units: {}, party: [], reserve: [], away: [], joined: {}, dead: [], items: { h0: 5, h1: 2 }, gear: [], gold: 300, sp: 10, spMax: 10, x: 10, y: 58, step: 0, flags: {}, sideDone: {}, books: {}, repel: 0, steps: 0, lastInn: '史家村', prisoners: [], prisonDays: {}, prisonLv: {}, sound: true, battles: 0, dueled: {} });
 const unitsOf = (ids) => ids.map((id) => S.units[id]).filter(Boolean);
 const party = () => unitsOf(S.party);
 const front = () => party().slice(0, 5);
@@ -40,7 +42,7 @@ function join(id, lv) {
 function leave(id, dead) { S.party = S.party.filter((x) => x !== id); S.reserve = S.reserve.filter((x) => x !== id); if (dead) { S.dead.push(id); delete S.units[id]; } else if (!S.away.includes(id)) S.away.push(id); refreshSp(); }
 function give(id, n = 1) { if (GEAR[id]) { for (let i = 0; i < n; i++) S.gear.push(id); return GEAR[id].name; } if (ITEMS[id]) { S.items[id] = (S.items[id] || 0) + n; return ITEMS[id].name; } return id; }
 function save() { S.x = P.x; S.y = P.y; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (cloud) cloud.touch(GAME, KEY); }
-function load() { try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && v.units) return { ...fresh(), ...v }; } catch (e) {} return null; }
+function load() { try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && v.units) return { ...fresh(), ...v, prisonDays: v.prisonDays || {}, prisonLv: v.prisonLv || {} }; } catch (e) {} return null; }
 
 // ---------------------------------------------------------------- drawing
 function draw(t) {
@@ -49,25 +51,44 @@ function draw(t) {
   if (scene === 'title') return drawTitle(t);
   drawMap(t);
 }
-function neighbours(x, y, c) { const nb = (dx, dy) => { const n = (W[y + dy] || [])[x + dx]; if (n == null) return '0'; return c === '=' ? ('=bFL'.includes(n) ? '1' : '0') : ('~r:FbL'.includes(n) ? '0' : '1'); }; return c === '=' || '~r:'.includes(c) ? nb(0, -1) + nb(1, 0) + nb(0, 1) + nb(-1, 0) : ''; }
+// what touches each side of a square: W water, S sand, N snow, G other ground; R a road (for bridges)
+const WET = '~r:FbL';
+const PLACE_AT = new Map(PLACES.map((p) => [p.x + ',' + p.y, p]));
+function sideCodes(x, y, c) {
+  const at = (dx, dy) => { const n = (W[y + dy] || [])[x + dx]; return n == null ? '~' : n; };
+  const code = (n, dx, dy) => { if ('FbL'.includes(c)) return n === '=' || 'FbL'.includes(n) || PLACE_AT.has((x + dx) + ',' + (y + dy)) ? 'R' : WET.includes(n) ? 'W' : 'G'; if (WET.includes(c)) return WET.includes(n) ? 'W' : 'G'; return WET.includes(n) ? 'W' : n === 's' ? 'S' : n === 'n' ? 'N' : 'G'; };
+  return [[0, -1], [1, 0], [0, 1], [-1, 0]].map(([dx, dy]) => code(at(dx, dy), dx, dy)).join('');
+}
 function drawMap(t) {
-  const cx = P.fx * 16 + 8 - LW / 2, cy = P.fy * 16 + 8 - LH / 2, x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16), frame = Math.floor(t * 1.6) % 2;
-  g.fillStyle = '#2a5aa8'; g.fillRect(0, 0, LW, LH);
-  for (let y = y0; y <= y0 + VH + 1; y++) for (let x = x0; x <= x0 + VW + 1; x++) { if (x < 0 || y < 0 || x >= MW || y >= MH) continue; const c = W[y][x]; g.drawImage(tile(c, x, y, frame, neighbours(x, y, c)), Math.round(x * 16 - cx), Math.round(y * 16 - cy)); }
+  const cx = P.fx * 16 + 8 - LW / 2, cy = P.fy * 16 + 8 - LH / 2, x0 = Math.floor(cx / 16), y0 = Math.floor(cy / 16), frame = Math.floor(t * 1.6) % 3;
+  g.fillStyle = '#2a5aa8'; g.fillRect(0, 0, LW, LH); g.imageSmoothingEnabled = true;
+  const X = (x) => Math.round((x * 16 - cx) * K) / K, Y = (y) => Math.round((y * 16 - cy) * K) / K;
+  // the ground
+  for (let y = y0 - 1; y <= y0 + VH + 1; y++) for (let x = x0 - 1; x <= x0 + VW + 1; x++) {
+    if (x < 0 || y < 0 || x >= MW || y >= MH) continue; let c = W[y][x];
+    const nb = sideCodes(x, y, c), under = 'fhM='.includes(c) ? (nb.includes('N') || y < 12 ? 'n' : '.') : c;
+    g.drawImage(groundTile(under, x, y, frame, under === c ? nb : sideCodes(x, y, under)), X(x), Y(y), 16, 16);
+    if (c === '=') { const conn = [[0, -1], [1, 0], [0, 1], [-1, 0]].map(([dx, dy]) => { const n = (W[y + dy] || [])[x + dx]; return n === '=' || 'bFL'.includes(n) || PLACE_AT.has((x + dx) + ',' + (y + dy)) ? '1' : '0'; }).join(''); g.drawImage(roadTile(conn, (x * 7 + y * 3) & 3), X(x), Y(y), 16, 16); }
+  }
+  // things standing up, row by row so the nearer overlap the farther
+  for (let y = y0 - 1; y <= y0 + VH + 2; y++) for (let x = x0 - 1; x <= x0 + VW + 1; x++) {
+    if (x < 0 || y < 0 || x >= MW || y >= MH) continue; const c = W[y][x]; if (!'fhM'.includes(c)) continue;
+    const img = standing(c, x, y, y < 12 || sideCodes(x, y, c).includes('N')); if (img) { const hsh = (x * 73856093 ^ y * 19349663) >>> 0, jx = (hsh % 7) - 3, k = c === 'M' ? 0.85 + ((hsh >>> 4) % 5) * 0.08 : 0.92 + ((hsh >>> 4) % 3) * 0.06, w = 16 * k, h = img.height / 3 * k; g.drawImage(img, X(x) + (16 - w) / 2 + jx * (c === 'M' ? 0.9 : 0.5), Y(y) + 16 - h + ((hsh >>> 8) % 3) - 1, w, h); }
+  }
   g.font = 'bold 6px "Noto Sans TC", sans-serif'; g.textAlign = 'center';
-  for (const p of PLACES) { if (p.x < x0 - 2 || p.x > x0 + VW + 2 || p.y < y0 - 2 || p.y > y0 + VH + 2) continue; const sx = Math.round(p.x * 16 - cx), sy = Math.round(p.y * 16 - cy); g.drawImage(placeIcon(p), sx - 4, sy - 8);
-    g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.strokeText(p.name, sx + 8, sy + 22); g.fillStyle = storyHere(p.id) ? '#ffe070' : '#ffffff'; g.fillText(p.name, sx + 8, sy + 22); if (storyHere(p.id)) { g.fillStyle = '#ffe070'; g.fillText('！', sx + 8, sy - 10 + Math.sin(t * 4) * 1.5); } }
-  // the army: the leader, then the next few, in a line
-  const lead = party()[0]; if (lead) { const img = walker(who(lead.id), P.dir, P.moving ? Math.floor(t * 8) % 2 : 0); g.drawImage(img, Math.round(P.fx * 16 - cx), Math.round(P.fy * 16 - cy) - 2); }
-  // where you are
+  for (const p of PLACES) { if (p.x < x0 - 2 || p.x > x0 + VW + 2 || p.y < y0 - 2 || p.y > y0 + VH + 2) continue; const sx = X(p.x), sy = Y(p.y); g.drawImage(placeArt(p), sx - 4, sy - 9, 24, 24);
+    g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.strokeText(p.name, sx + 8, sy + 22); g.fillStyle = storyHere(p.id) ? '#ffe070' : '#ffffff'; g.fillText(p.name, sx + 8, sy + 22); if (storyHere(p.id)) { g.fillStyle = '#ffe070'; g.fillText('！', sx + 8, sy - 11 + Math.sin(t * 4) * 1.5); } }
+  // the army
+  const lead = party()[0]; if (lead) { const img = marcher(who(lead.id), P.dir, P.moving ? Math.floor(t * 8) % 2 : 0, '#3a5aa8'); g.drawImage(img, X(P.fx), Y(P.fy) - 4, 16, 16); }
   const d = dangerAt(P.x, P.y), tn = TILE[W[P.y][P.x]];
   g.fillStyle = 'rgba(10,14,40,0.7)'; g.fillRect(2, 2, 92, 11); g.font = '6px "Noto Sans TC", sans-serif'; g.textAlign = 'left'; g.fillStyle = '#e8e0c8'; g.fillText(`${d.place.name}附近 · ${tn.name}`, 5, 9.5);
+  g.imageSmoothingEnabled = false;
 }
 function drawTitle(t) {
   g.drawImage(backdrop('water'), 0, 0, LW, 150); g.fillStyle = '#0e1430'; g.fillRect(0, 150, LW, 74);
   g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 0, LW, LH);
   const ids = ['宋江', '盧俊義', '吳用', '林沖', '武松', '魯智深', '李逵', '花榮', '扈三娘', '燕青'];
-  ids.forEach((id, i) => { const p = portrait(PEOPLE[id]); g.globalAlpha = 0.9; g.drawImage(p, 12 + i * 36.5, 150 + Math.sin(t + i) * 2, 34, 34); }); g.globalAlpha = 1;
+  g.imageSmoothingEnabled = true; ids.forEach((id, i) => { const p = painted(PEOPLE[id]); g.globalAlpha = 0.95; g.drawImage(p, 10 + i * 36.6, 150 + Math.sin(t + i) * 2, 34, 42.5); }); g.globalAlpha = 1; g.imageSmoothingEnabled = false;
 }
 // ---------------------------------------------------------------- the story
 const stepNow = () => STORY[S.step];
@@ -172,7 +193,7 @@ const innCost = () => (PLACE[S.lastInn]?.kind === 'base' ? 0 : 10 + avgLv() * 6)
 async function inn(p) {
   const free = p.kind === 'temple' || p.kind === 'base', cost = free ? 0 : 10 + avgLv() * 6;
   if (cost > S.gold) { toast('銀兩不夠'); return; }
-  S.gold -= cost; restAll(); S.lastInn = p.id; sfx('heal'); await banner('一夜好眠，兵馬都恢復了', 1200); save(); toast('已存檔');
+  S.gold -= cost; restAll(); S.lastInn = p.id; for (const id of S.prisoners) S.prisonDays[id] = (S.prisonDays[id] || 0) + 1; sfx('heal'); await banner('一夜好眠，兵馬都恢復了', 1200); save(); toast('已存檔');
 }
 async function shop(p, kind) {
   const list = kind === 'temple' ? shopOf(p, 'item').filter((id) => ['book', 'heal', 'sp', 'cast'].includes(ITEMS[id].kind)).concat(Object.values(ITEMS).filter((i) => i.kind === 'book').slice(0, 8).map((i) => i.id)) : shopOf(p, kind);
@@ -218,6 +239,19 @@ function newsFor(p) {
   const near = STAR_IDS.filter((id) => STAR_HOME[id] && !S.joined[id] && !S.dead.includes(id)).map((id) => STAR_HOME[id]); const tip = S.flags.根據地 && near.length ? `另外，有人在${[...new Set(near)].slice(0, 3).join('、')}的酒館見過想上梁山的好漢。` : '';
   return hint + tip;
 }
+// prisoners travel with the army; each night at an inn softens them a little
+const prisonChance = (id) => Math.min(0.9, 0.25 + (S.prisonDays?.[id] || 0) * 0.12 + starsJoined() / 400 + (S.flags.根據地 ? 0.05 : 0));
+async function prisoners() {
+  for (;;) {
+    if (!S.prisoners.length) { toast('軍中沒有俘虜'); return; }
+    const id = await menu(S.prisoners.map((id) => ({ label: `${who(id).name}「${who(id).nick}」`, hint: `${Math.round(prisonChance(id) * 100)}%`, value: id })), { title: '俘虜（住一晚客棧，招降的機會就高一點）', foot: '選一位去勸；也可以送禮或放走' });
+    if (!id) return; const p = who(id);
+    const c = await menu([{ label: '勸降', hint: `${Math.round(prisonChance(id) * 100)}%`, value: 'ask' }, { label: '送禮', value: 'gift', off: !Object.keys(S.items).some((x) => ITEMS[x]?.kind === 'gift') }, { label: '放走', value: 'free' }, { label: '返回', value: 'back' }], { title: `${p.name}（武${p.wu} 智${p.zhi}）` });
+    if (c === 'gift') { const g = await menu(Object.entries(S.items).filter(([x]) => ITEMS[x]?.kind === 'gift').map(([x, n]) => ({ label: ITEMS[x].name, hint: '×' + n, value: x })), { title: '送什麼？' }); if (g) { use(g); S.prisonDays[id] = (S.prisonDays[id] || 0) + ITEMS[g].v / 8; toast(`${p.name}收下了${ITEMS[g].name}`); } continue; }
+    if (c === 'free') { S.prisoners = S.prisoners.filter((x) => x !== id); await say([[id, '……今日之恩，他日再報。']]); continue; }
+    if (c === 'ask') { if (Math.random() < prisonChance(id)) { await say([[id, '……這些日子，我看見了你們是怎麼對待百姓的。我願加入。']]); join(id, S.prisonLv?.[id]); toast(`${p.name}加入了！`); } else { await say([[id, '……讓我再想想。']]); S.prisonDays[id] = (S.prisonDays[id] || 0) + 0.3; } }
+  }
+}
 // the hall at Liangshan: choose who travels with you; prisoners in the cells
 async function hall() {
   for (;;) {
@@ -225,7 +259,7 @@ async function hall() {
     if (!c || c === 'back') return;
     if (c === 'out') { const id = await menu(S.party.map((id) => ({ label: who(id).name, hint: 'Lv' + S.units[id].lv, value: id })), { title: '誰留在山上？' }); if (id) { S.party = S.party.filter((x) => x !== id); S.reserve.push(id); refreshSp(); } }
     if (c === 'in') { const id = await menu(S.reserve.map((id) => ({ label: `${who(id).name}「${who(id).nick}」`, hint: 'Lv' + S.units[id].lv, value: id })), { title: '誰跟你走？' }); if (id) { S.reserve = S.reserve.filter((x) => x !== id); S.party.push(id); refreshSp(); } }
-    if (c === 'pris') { const id = await menu(S.prisoners.map((id) => ({ label: who(id).name, value: id })), { title: '勸誰？' }); if (id) { const ok = Math.random() < 0.35 + starsJoined() / 300; if (ok) { await say([[id, '……這些天，我看見了梁山的人是怎麼對待百姓的。我願加入。']]); join(id); } else await say([[id, '……讓我再想想。']]); } }
+    if (c === 'pris') await prisoners();
     if (c === 'roll') await roll();
   }
 }
@@ -239,7 +273,7 @@ async function mapMenu() {
   try {
     for (;;) {
       const s = stepNow();
-      const c = await menu([{ label: '部隊', value: 'units' }, { label: '道具', value: 'items' }, { label: '計策', value: 'tac' }, { label: '隊伍', value: 'order' }, { label: '地圖', value: 'map' }, { label: '名冊', value: 'roll' }, { label: '存檔', value: 'save' }, { label: `聲音：${soundOn() ? '開' : '關'}`, value: 'snd' }, { label: '回標題', value: 'title' }],
+      const c = await menu([{ label: '部隊', value: 'units' }, { label: '道具', value: 'items' }, { label: '計策', value: 'tac' }, { label: '隊伍', value: 'order' }, { label: '地圖', value: 'map' }, { label: '名冊', value: 'roll' }, { label: `俘虜（${S.prisoners.length}）`, value: 'pris', off: !S.prisoners.length }, { label: '存檔', value: 'save' }, { label: `聲音：${soundOn() ? '開' : '關'}`, value: 'snd' }, { label: '回標題', value: 'title' }],
         { title: `💰${S.gold}　策略 ${S.sp}/${S.spMax}`, foot: s ? `目標：${esc(s.goal)}（${esc(s.at)}）` : '全劇終', cls: 'main' });
       if (!c) return;
       if (c === 'units') await unitsScreen();
@@ -248,6 +282,7 @@ async function mapMenu() {
       if (c === 'order') await orderScreen();
       if (c === 'map') await worldMap();
       if (c === 'roll') await roll();
+      if (c === 'pris') await prisoners();
       if (c === 'save') { save(); toast('已存檔'); }
       if (c === 'snd') { S.sound = !soundOn(); setSound(S.sound); if (S.sound) music('road'); }
       if (c === 'title') { if (await confirm('回到標題畫面？（記得先存檔）')) { scene = 'title'; return title(); } }
@@ -263,7 +298,7 @@ async function unitsScreen() {
 async function unitDetail(u) {
   for (;;) {
     const p = who(u.id), st = stats(u), tac = knows(u, S.books);
-    const box = el('div', 'win detail'); const f = faceOf(u.id, 144); box.appendChild(f);
+    const box = el('div', 'win detail'); const f = faceOf(u.id); if (f) box.appendChild(f);
     box.insertAdjacentHTML('beforeend', `<div class="dinfo"><div class="dname">${esc(p.name)} <small>「${esc(p.nick)}」${p.star ? ' · ' + p.star : ''}</small></div><div>Lv ${u.lv}　經驗 ${u.exp}/${expNeed(u.lv)}　${p.troop}兵</div><div>兵力 ${u.troops} / ${st.max}</div>
       <div class="dstats"><span>武力 <b>${st.wu}</b></span><span>智力 <b>${st.zhi}</b></span><span>統率 <b>${st.tong}</b></span><span>速度 <b>${Math.round(st.su)}</b></span><span>攻擊 <b>${st.atk}</b></span><span>防禦 <b>${st.def}</b></span></div>
       <div class="dtac">計策：${tac.length ? tac.map(esc).join('、') : '—'}</div></div>`);

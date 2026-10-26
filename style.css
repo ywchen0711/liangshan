@@ -11,7 +11,7 @@ html, body { margin: 0; height: 100%; background: #05060e; color: var(--txt); ov
 .win small { opacity: .75; font-size: .82em; }
 /* dialogue */
 .talk { left: calc(var(--s) * 6px); right: calc(var(--s) * 6px); bottom: calc(var(--s) * 6px); min-height: calc(var(--s) * 54px); display: flex; gap: calc(var(--s) * 6px); align-items: flex-start; cursor: pointer; z-index: 30; }
-.talk .tface { image-rendering: pixelated; width: calc(var(--s) * 44px) !important; height: calc(var(--s) * 44px) !important; flex: none; border: calc(var(--s) * 0.7px) solid var(--edge); }
+.talk .tface { width: calc(var(--s) * 44px) !important; height: calc(var(--s) * 55px) !important; border-radius: calc(var(--s) * 1px); flex: none; border: calc(var(--s) * 0.7px) solid var(--edge); }
 .talk .tbody { flex: 1; } .talk .tname { color: var(--gold); font-weight: 900; margin-bottom: calc(var(--s) * 1.5px); font-size: 1.05em; } .talk .tname small { color: #c8d0ff; font-weight: 700; margin-left: .4em; }
 .talk .ttext { font-size: 1.12em; line-height: 1.6; font-family: "Noto Serif TC", serif; font-weight: 700; white-space: pre-wrap; }
 .talk.narr .ttext { font-style: normal; color: #e8e4d8; }
@@ -42,7 +42,7 @@ html, body { margin: 0; height: 100%; background: #05060e; color: var(--txt); ov
 .rl { display: flex; gap: .5em; opacity: .5; } .rl span { color: #a8b0e0; } .rl.on { opacity: 1; } .rl.on b { color: var(--gold); } .rl.dead b { text-decoration: line-through; opacity: .6; }
 .mapbox { padding: calc(var(--s) * 3px); display: flex; align-items: center; justify-content: center; } .mapbox canvas { height: 100%; width: auto; max-width: 100%; object-fit: contain; image-rendering: pixelated; }
 .detail { left: calc(var(--s) * 8px); right: calc(var(--s) * 8px); top: calc(var(--s) * 8px); display: flex; gap: calc(var(--s) * 6px); z-index: 19; }
-.detail canvas { image-rendering: pixelated; width: calc(var(--s) * 64px) !important; height: calc(var(--s) * 64px) !important; border: calc(var(--s) * 0.7px) solid var(--edge); flex: none; }
+.detail canvas { width: calc(var(--s) * 64px) !important; height: calc(var(--s) * 80px) !important; border: calc(var(--s) * 0.7px) solid var(--edge); flex: none; }
 .dinfo { flex: 1; line-height: 1.5; } .dname { color: var(--gold); font-weight: 900; font-size: 1.15em; } .dstats { display: grid; grid-template-columns: repeat(3, 1fr); margin: calc(var(--s) * 1px) 0; } .dstats b { color: var(--gold); } .dtac { font-size: .88em; color: #c8d8ff; }
 /* battle */
 #bhud { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--s) * 74px); display: flex; gap: calc(var(--s) * 4px); padding: calc(var(--s) * 3px); pointer-events: none !important; }

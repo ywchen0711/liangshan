@@ -1,7 +1,7 @@
 // The windows, in the style of the old console RPGs: blue boxes with a white border. Dialogue with a portrait and
 // words that appear as they are spoken, menus you move through with the arrows (or tap), notices, and the input
 // that drives them all: keys, mouse and the touch pad, read as up / down / left / right / ok / cancel.
-import { portrait } from './art.js';
+import { painted } from './face.js';
 import { who } from './rules.js';
 import { esc, wait } from './util.js';
 
@@ -15,7 +15,7 @@ export function press(a) { const top = listeners[listeners.length - 1]; if (top)
 addEventListener('keydown', (e) => { const a = KEYS[e.code]; if (!a) return; if (e.target.tagName === 'INPUT') return; e.preventDefault(); input.held.add(a); if (!e.repeat || ['up', 'down', 'left', 'right'].includes(a)) press(a); });
 addEventListener('keyup', (e) => { const a = KEYS[e.code]; if (a) input.held.delete(a); });
 // ---------------------------------------------------------------- dialogue
-const face = (id, size = 96) => { const p = who(id); if (!p) return null; const c = portrait(p), img = el('canvas'); img.width = img.height = 48; img.getContext('2d').drawImage(c, 0, 0); img.style.width = img.style.height = size + 'px'; return img; };
+const face = (id) => { const p = who(id); if (!p || p.beast || p.grunt && !p.look) return null; const c = painted(p), img = el('canvas'); img.width = c.width; img.height = c.height; img.getContext('2d').drawImage(c, 0, 0); return img; };
 export const faceOf = face;
 export async function say(lines, opt = {}) {
   const box = el('div', 'win talk'), root = $('ui'); root.appendChild(box);
@@ -23,7 +23,7 @@ export async function say(lines, opt = {}) {
     for (const ln of lines) {
       const [who0, text] = ln, p = who0 !== '-' ? who(who0) : null;
       box.innerHTML = ''; box.classList.toggle('narr', who0 === '-');
-      if (p) { const f = face(who0, 112); f.className = 'tface'; box.appendChild(f); }
+      if (p) { const f = face(who0); if (f) { f.className = 'tface'; box.appendChild(f); } }
       const body = el('div', 'tbody'); if (who0 !== '-') body.appendChild(el('div', 'tname', p ? `${esc(p.name)}${p.nick ? `<small>「${esc(p.nick)}」</small>` : ''}` : esc(who0))); const tx = el('div', 'ttext'); body.appendChild(tx); box.appendChild(body);
       const arrow = el('div', 'tmore', '▼'); box.appendChild(arrow);
       // type it out; ok shows it all at once, then ok again goes on

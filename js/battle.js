@@ -216,8 +216,9 @@ export class Battle {
       if (c === 'free') { S._gift = 0; await say([[p.id, '……今日之恩，他日再報。']], { fast: true }); return; }
       if (this.R() < chance) { S._gift = 0; this.o.onJoin(p.id, f.lv); await say([[p.id, R0(['久聞梁山好漢替天行道，我願追隨！', '罷了！今後這條命就交給你們了。', '敗軍之將，承蒙不殺。願效犬馬之勞！', '好！我跟你們幹了！'], p.id)]]); return; }
       S._gift = 0; await say([[p.id, R0(['要殺便殺，我不會投降！', '哼，我豈是貪生怕死之輩！', '休想！'], p.id)]], { fast: true });
-      const again = await confirm('要放他走嗎？', '放走', '關起來再勸（明天再問）'); if (again) return;
-      S.prisoners = S.prisoners || []; if (!S.prisoners.includes(p.id)) S.prisoners.push(p.id); return;
+      const again = await confirm('要放他走嗎？', '放走', '押在軍中，之後再勸'); if (again) return;
+      S.prisoners = S.prisoners || []; if (!S.prisoners.includes(p.id)) { S.prisoners.push(p.id); S.prisonLv = S.prisonLv || {}; S.prisonLv[p.id] = f.lv; S.prisonDays = S.prisonDays || {}; S.prisonDays[p.id] = 0; }
+      await say([['-', `${p.name}被押在軍中。隨時可以從選單的「俘虜」再去勸他；每在客棧住一晚，他的心就軟一點。`]], { fast: true }); return;
     }
   }
 }
