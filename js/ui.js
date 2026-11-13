@@ -60,5 +60,5 @@ export function menu(items, opt = {}) {
 export async function confirm(text, yes = '是', no = '否') { const r = await menu([{ label: yes }, { label: no }], { title: text, cls: 'small' }); return r === 0; }
 export function toast(text, ms = 2200) { const t = el('div', 'toast', esc(text)); $('ui').appendChild(t); setTimeout(() => t.remove(), ms); }
 // a panel that stays until cancelled (status screens and the like)
-export function panel(html, cls = '') { return new Promise((res) => { const w = el('div', 'win panel ' + cls, html); $('ui').appendChild(w); const off = input.on((a) => { if (a === 'cancel' || a === 'ok' || a === 'menu') { off(); w.remove(); res(); } }); w.onclick = () => press('cancel'); }); }
+export function panel(html, cls = '') { return new Promise((res) => { const w = el('div', 'win panel ' + cls, html); $('ui').appendChild(w); const off = input.on((a) => { if (a === 'up' || a === 'down') w.scrollBy({ top: (a === 'up' ? -1 : 1) * w.clientHeight * 0.4, behavior: 'smooth' }); if (a === 'cancel' || a === 'ok' || a === 'menu') { off(); w.remove(); res(); } }); w.onclick = () => press('cancel'); }); }
 export function banner(text, ms = 1300) { const b = el('div', 'banner', esc(text)); $('ui').appendChild(b); return wait(ms).then(() => b.remove()); }

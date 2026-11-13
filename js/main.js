@@ -208,7 +208,7 @@ async function shop(p, kind) {
   }
 }
 function gearLine(x) { if (!x.slot) return x.desc || ''; const a = []; if (x.atk) a.push('攻' + x.atk); if (x.def) a.push('防' + x.def); for (const [k, n] of [['wu', '武'], ['zhi', '智'], ['tong', '統'], ['su', '速']]) if (x[k]) a.push(n + (x[k] > 0 ? '+' : '') + x[k]); return `${SLOTS[x.slot]}${x.type ? '·' + WTYPE[x.type] : ''} ${a.join(' ')}`; }
-function compareLine(id) { const x = GEAR[id] || ITEMS[id]; if (!GEAR[id]) return esc(x.desc || ''); return party().slice(0, 6).map((u) => `${esc(who(u.id).name)} ${diffText(u, id)}`).join('　'); }
+function compareLine(id) { const x = GEAR[id] || ITEMS[id]; if (!GEAR[id]) return esc(x.desc || ''); return party().slice(0, 6).map((u) => `<span class="cmp"><b>${esc(who(u.id).name)}</b> ${diffText(u, id)}</span>`).join(''); }
 function diffText(u, gid) { const x = GEAR[gid], cur = GEAR[u.equip[x.slot]], b = stats(u), u2 = { ...u, equip: { ...u.equip, [x.slot]: gid } }, a = stats(u2); const d = (k, n) => { const v = a[k] - b[k]; return v ? `${n}${v > 0 ? '+' : ''}${v}` : ''; }; return [d('atk', '攻'), d('def', '防'), d('zhi', '智'), d('spd', '速')].filter(Boolean).join(' ') || (cur && cur.id === gid ? '已裝備' : '—'); }
 function equip(u, gid) { const x = GEAR[gid], i = S.gear.indexOf(gid); if (i < 0) return; S.gear.splice(i, 1); if (u.equip[x.slot]) S.gear.push(u.equip[x.slot]); u.equip[x.slot] = gid; const m = stats(u).max; u.troops = Math.min(u.troops, m); refreshSp(); }
 async function sell() {
@@ -265,7 +265,7 @@ async function hall() {
 }
 async function roll() {
   const rows = STAR_IDS.map((id) => { const x = PEOPLE[id], j = S.joined[id] && !S.dead.includes(id); return `<div class="rl ${j ? 'on' : S.dead.includes(id) ? 'dead' : ''}"><span>${x.star}</span><b>${j || S.dead.includes(id) ? esc(x.nick + ' ' + x.name) : '？？？'}</b></div>`; }).join('');
-  await panel(`<div class="ptitle">一百單八將 · ${starsJoined()} / 108　<small>其他頭領 ${Object.keys(S.joined).filter((id) => !STAR_IDS.includes(id) && !S.dead.includes(id)).length} 位</small></div><div class="roll">${rows}</div>`, 'wide');
+  await panel(`<div class="ptitle">一百單八將 · ${starsJoined()} / 108　<small>↑↓ 捲動　其他頭領 ${Object.keys(S.joined).filter((id) => !STAR_IDS.includes(id) && !S.dead.includes(id)).length} 位</small></div><div class="roll">${rows}</div>`, 'wide');
 }
 // ---------------------------------------------------------------- the map menu
 async function mapMenu() {

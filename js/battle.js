@@ -137,7 +137,7 @@ export class Battle {
   }
   async pickTarget(side, fallen = false) {
     const list = (side === 'foe' ? this.foes : this.allies).filter((b) => (fallen ? b.gone : !b.gone)); if (!list.length) return null;
-    const place = (w) => { w.style.left = side === 'foe' ? '4%' : 'auto'; w.style.right = side === 'foe' ? 'auto' : '4%'; w.style.top = '10%'; };
+    const place = (w) => { w.style.left = '50%'; w.style.top = '10%'; w.style.transform = 'translateX(-50%)'; }; // the open field between the armies, so the generals being picked stay in view
     const r = await menu(list.map((b) => ({ label: b.name, hint: b.gone ? '潰散' : String(b.troops), value: b })), { title: side === 'foe' ? '目標' : '我軍', cls: 'bcmd', place, onMove: (it) => { for (const x of [...this.foes, ...this.allies]) x.marked = x === it?.value; this.hud(); } });
     for (const x of [...this.foes, ...this.allies]) x.marked = false; return r;
   }

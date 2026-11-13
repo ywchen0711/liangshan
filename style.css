@@ -30,6 +30,7 @@ html, body { margin: 0; height: 100%; background: #0a0604; color: var(--txt); ov
 .menu.place { left: calc(var(--s) * 8px); right: auto; }
 .menu.shop { left: calc(var(--s) * 8px); right: calc(var(--s) * 8px); max-width: none; max-height: calc(var(--s) * 206px); top: calc(var(--s) * 8px); }
 .menu.shop .mrow { white-space: normal; }
+.menu .mfoot .cmp { display: inline-block; white-space: nowrap; margin-right: 1.2em; } .menu .mfoot .cmp b { color: var(--gold); font-weight: 700; }
 .menu.equip { left: calc(var(--s) * 8px); right: auto; top: calc(var(--s) * 120px); }
 .menu.order { left: calc(var(--s) * 8px); right: auto; }
 .menu.tmenu { left: 50%; right: auto; top: 62%; transform: translateX(-50%); min-width: calc(var(--s) * 80px); text-align: center; }
@@ -45,13 +46,13 @@ html, body { margin: 0; height: 100%; background: #0a0604; color: var(--txt); ov
 .detail canvas { width: calc(var(--s) * 64px) !important; height: calc(var(--s) * 80px) !important; border: calc(var(--s) * 0.7px) solid var(--edge); flex: none; }
 .dinfo { flex: 1; line-height: 1.5; } .dname { color: var(--gold); font-weight: 900; font-size: 1.15em; } .dstats { display: grid; grid-template-columns: repeat(3, 1fr); margin: calc(var(--s) * 1px) 0; } .dstats b { color: var(--gold); } .dtac { font-size: .88em; color: #c8d8ff; }
 /* battle */
-#bhud { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--s) * 74px); display: flex; gap: calc(var(--s) * 4px); padding: calc(var(--s) * 3px); pointer-events: none !important; }
+#bhud { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--s) * 77px); display: flex; gap: calc(var(--s) * 4px); padding: calc(var(--s) * 3px); pointer-events: none !important; }
 #bhud .win { position: relative; flex: 1; padding: calc(var(--s) * 2.5px) calc(var(--s) * 5px); overflow: hidden; }
 .brow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: .5em; font-size: .92em; line-height: 1.2; }
 .brow b { white-space: nowrap; overflow: hidden; } .brow .bt { font-variant-numeric: tabular-nums; } .brow i { grid-column: 2 / 4; display: block; height: calc(var(--s) * 1.4px); background: #000; margin-bottom: calc(var(--s) * 1px); } .brow em { display: block; height: 100%; background: linear-gradient(90deg, #3ab83a, #9af07a); }
 .brow u { text-decoration: none; color: #fff; font-size: .78em; margin-left: .3em; padding: 0 .2em; border-radius: calc(var(--s) * 1px); background: #7a4ab8; font-weight: 700; } .brow u.cnf { background: #c03a9a; } .brow u.stn { background: #a8881a; } .brow u.bld { background: #4a4a5a; } .brow u.wk { background: #7a4ab8; } .brow u.up { background: #b8701a; } .brow.out { opacity: .4; } .brow.mk b { color: var(--gold); }
-.bsp { color: #f0c890; font-size: .85em; margin-bottom: calc(var(--s) * 1px); }
-.menu.bcmd { right: auto; z-index: 22; }
+.bsp { color: #f0c890; font-size: .72em; line-height: 1.15; margin-bottom: calc(var(--s) * 0.5px); }
+.menu.bcmd { right: auto; z-index: 22; max-height: calc(var(--s) * 104px); } /* ends above the battle panels */
 .bauto { float: right; color: #ff8a5a; font-weight: 900; animation: bauto 0.8s ease-in-out infinite alternate; } @keyframes bauto { to { opacity: 0.45; } }
 #bbanner { left: 50%; top: calc(var(--s) * 6px); transform: translateX(-50%); font-weight: 900; color: var(--gold); white-space: nowrap; z-index: 21; pointer-events: none !important; }
 /* title */
@@ -70,4 +71,4 @@ html, body { margin: 0; height: 100%; background: #0a0604; color: var(--txt); ov
 
 /* pixel-art portraits: keep the squares sharp; a small face for each general in the battle lists */
 #ui canvas, .tface, .detail canvas { image-rendering: pixelated; }
-.brow .bf { grid-row: span 2; width: calc(var(--s) * 9.6px); height: calc(var(--s) * 12px); image-rendering: pixelated; border: 1px solid rgba(255,255,255,0.25); display: block; }
+.brow .bf { grid-row: span 2; width: calc(var(--s) * 8.4px); height: calc(var(--s) * 10.5px); image-rendering: pixelated; border: 1px solid rgba(255,255,255,0.25); display: block; }
