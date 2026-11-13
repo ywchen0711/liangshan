@@ -16,6 +16,10 @@ const LW = 384, LH = 224;
 const FACES = new Map();
 function faceUrl(p) { if (!p || p.beast || (p.grunt && !p.look)) return null; if (!FACES.has(p.id)) FACES.set(p.id, painted(p).toDataURL()); return FACES.get(p.id); }
 
+// the statuses and buffs on a general, as small coloured tags beside the name
+const ST_TAG = { confuse: ['亂', 'cnf'], stun: ['暈', 'stn'], blind: ['盲', 'bld'], weak: ['弱', 'wk'] }, BUFF_TAG = { atk: '攻↑', def: '防↑', spd: '速↑' };
+const stTags = (b) => [...Object.keys(b.status).filter((k) => b.status[k] > 0 && ST_TAG[k]).map((k) => `<u class="${ST_TAG[k][1]}">${ST_TAG[k][0]}</u>`),
+  ...Object.keys(b.buff).filter((k) => b.buff[k] > 1 && BUFF_TAG[k]).map((k) => `<u class="up">${BUFF_TAG[k]}</u>`)].join('');
 export class Battle {
   constructor(o) {
     this.o = o; this.R = rng((Date.now() & 0xffff) ^ hash(o.foes.join())); this.t = 0; this.fx = []; this.pops = [];
@@ -64,7 +68,7 @@ export class Battle {
   // the windows under the field: the enemy on the left, your generals on the right with their soldiers
   hud() {
     let h = $('bhud'); if (!h) { h = el('div', ''); h.id = 'bhud'; $('ui').appendChild(h); }
-    const row = (b) => `<div class="brow ${b.gone ? 'out' : ''} ${b.marked ? 'mk' : ''}">${faceUrl(b.p) ? `<img class="bf" src="${faceUrl(b.p)}">` : '<span class="bf"></span>'}<b>${esc(b.name)}</b><span class="bt">${b.gone ? '潰散' : b.troops}</span><i><em style="width:${clamp(b.troops / b.max, 0, 1) * 100}%"></em></i>${Object.keys(b.status).filter((k) => b.status[k] > 0).map((k) => `<u>${{ confuse: '亂', stun: '暈', blind: '盲', weak: '弱' }[k]}</u>`).join('')}</div>`;
+    const row = (b) => `<div class="brow ${b.gone ? 'out' : ''} ${b.marked ? 'mk' : ''}">${faceUrl(b.p) ? `<img class="bf" src="${faceUrl(b.p)}">` : '<span class="bf"></span>'}<b>${esc(b.name)}${b.gone ? '' : stTags(b)}</b><span class="bt">${b.gone ? '潰散' : b.troops}</span><i><em style="width:${clamp(b.troops / b.max, 0, 1) * 100}%"></em></i></div>`;
     h.innerHTML = `<div class="win bfoe">${this.foes.map(row).join('')}</div><div class="win bally"><div class="bsp">策略值 ${this.o.S.sp} / ${this.o.S.spMax}${this.auto ? '<span class="bauto">總攻擊中</span>' : ''}</div>${this.allies.map(row).join('')}</div>`;
   }
   async run() {

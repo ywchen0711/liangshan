@@ -49,7 +49,7 @@ html, body { margin: 0; height: 100%; background: #0a0604; color: var(--txt); ov
 #bhud .win { position: relative; flex: 1; padding: calc(var(--s) * 2.5px) calc(var(--s) * 5px); overflow: hidden; }
 .brow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: .5em; font-size: .92em; line-height: 1.2; }
 .brow b { white-space: nowrap; overflow: hidden; } .brow .bt { font-variant-numeric: tabular-nums; } .brow i { grid-column: 2 / 4; display: block; height: calc(var(--s) * 1.4px); background: #000; margin-bottom: calc(var(--s) * 1px); } .brow em { display: block; height: 100%; background: linear-gradient(90deg, #3ab83a, #9af07a); }
-.brow u { text-decoration: none; color: #e8a0ff; font-size: .8em; } .brow.out { opacity: .4; } .brow.mk b { color: var(--gold); }
+.brow u { text-decoration: none; color: #fff; font-size: .78em; margin-left: .3em; padding: 0 .2em; border-radius: calc(var(--s) * 1px); background: #7a4ab8; font-weight: 700; } .brow u.cnf { background: #c03a9a; } .brow u.stn { background: #a8881a; } .brow u.bld { background: #4a4a5a; } .brow u.wk { background: #7a4ab8; } .brow u.up { background: #b8701a; } .brow.out { opacity: .4; } .brow.mk b { color: var(--gold); }
 .bsp { color: #f0c890; font-size: .85em; margin-bottom: calc(var(--s) * 1px); }
 .menu.bcmd { right: auto; z-index: 22; }
 .bauto { float: right; color: #ff8a5a; font-weight: 900; animation: bauto 0.8s ease-in-out infinite alternate; } @keyframes bauto { to { opacity: 0.45; } }
